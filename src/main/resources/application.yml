@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  config:
+    activate:
+      on-profile: local
+  batch:
+    job:
+      names: ${job.name:NONE}
+
+---
+spring:
+  profiles:
+    active: local
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql:localhost:3306/batch
+    username: root
+    password:
+  jpa:
+    database: mysql
+  batch:
+    jdbc:
+      initialize-schema: ALWAYS
+
+---
+spring:
+  profiles:
+    active: test
+  jpa:
+    database: h2
