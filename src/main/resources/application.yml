@@ -2,17 +2,17 @@ server:
   port: 8080
 
 spring:
-  config:
-    activate:
-      on-profile: local
+  profiles:
+    active: local
   batch:
     job:
       names: ${job.name:NONE}
 
 ---
 spring:
-  profiles:
-    active: local
+  config:
+    activate:
+      on-profile: local
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/batch
@@ -20,13 +20,18 @@ spring:
     password:
   jpa:
     database: mysql
+    show-sql: true
+    generate-ddl: false
+    hibernate:
+      ddl-auto: update
   batch:
     jdbc:
-      initialize-schema: ALWAYS
+      initialize-schema: always
 
 ---
 spring:
-  profiles:
-    active: test
+  config:
+    activate:
+      on-profile: test
   jpa:
     database: h2
