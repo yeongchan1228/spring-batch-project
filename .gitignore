@@ -36,7 +36,5 @@ out/
 ### VS Code ###
 .vscode/
 
-player-list.txt
-player-salary-list.txt
-data/input.txt
-success-player-salary-list.txt
+LAWD.txt
+LAWD_CODE_SAMPLE.txt
