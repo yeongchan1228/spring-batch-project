@@ -3,14 +3,11 @@ package springbatch.springbatchproject.job.apt;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobParametersValidator;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
-import org.springframework.batch.core.job.CompositeJobParametersValidator;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemWriter;
@@ -20,47 +17,51 @@ import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import springbatch.springbatchproject.adapter.ApartmentApiResource;
-import springbatch.springbatchproject.core.repository.LawdRepository;
 import springbatch.springbatchproject.job.apt.dto.AptDealDto;
 import springbatch.springbatchproject.job.validator.YearMonthParameterValidator;
 
 import java.time.YearMonth;
-import java.util.List;
 
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class AptDealInsertJobConfig {
 
-    private final LawdRepository lawdRepository;
+    private final LawdTasklet lawdTasklet;
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
     private final ApartmentApiResource apartmentApiResource;
 
     @Bean
-    public Job aptDealInsertJob(Step aptDealInsertStep,
-                                Step lawdCdReadStep,
-                                Step contextPrintStep) {
+    public Job aptDealInsertJob(
+            Step lawdCdReadStep,
+            Step contextPrintStep
+//            Step aptDealInsertStep
+    ) {
         return jobBuilderFactory.get("aptDealInsertJob")
                 .incrementer(new RunIdIncrementer())
 //                .validator(new FilePathParameterResourceValidator())
-                .validator(aptDealJobParameterValidator())
+//                .validator(aptDealJobParameterValidator())
+                .validator(new YearMonthParameterValidator())
+
                 .start(lawdCdReadStep)
-                .next(aptDealInsertStep)
+                .on("CONTINUABLE").to(contextPrintStep).next(lawdCdReadStep) // 반복 조건
+                .from(lawdCdReadStep).on("*").end() // 종료 조건
+                .end()
+
                 .build();
     }
 
-    private JobParametersValidator aptDealJobParameterValidator() {
-        CompositeJobParametersValidator validator = new CompositeJobParametersValidator();
-        validator.setValidators(List.of(
-                new YearMonthParameterValidator()
+//    private JobParametersValidator aptDealJobParameterValidator() {
+//        CompositeJobParametersValidator validator = new CompositeJobParametersValidator();
+//        validator.setValidators(List.of(
+//                new YearMonthParameterValidator(),
 //                new LawdCdParameterValidator()
-        ));
-        return validator;
-    }
+//        ));
+//        return validator;
+//    }
 
     @Bean
     @JobScope
@@ -76,15 +77,7 @@ public class AptDealInsertJobConfig {
     @JobScope
     public Step lawdCdReadStep() {
         return stepBuilderFactory.get("lawdCdReadStep")
-                .tasklet((contribution, chunkContext) -> {
-                    StepExecution stepExecution = chunkContext.getStepContext().getStepExecution();
-                    ExecutionContext jobExecutionContext = stepExecution.getJobExecution().getExecutionContext();
-
-                    List<String> lawdCds = lawdRepository.findDistinctSubstringLawdCd(PageRequest.of(0, 40));
-                    jobExecutionContext.putString("lawdCd", lawdCds.get(0));
-
-                    return RepeatStatus.FINISHED;
-                })
+                .tasklet(lawdTasklet)
                 .build();
     }
 
@@ -100,7 +93,7 @@ public class AptDealInsertJobConfig {
 
                     String lawdCd = jobExecutionContext.getString("lawdCd");
                     System.out.println("lawdCd = " + lawdCd);
-                    System.out.println("valueLawdCd = " + valueLawdCd);
+//                    System.out.println("valueLawdCd = " + valueLawdCd);
                     return RepeatStatus.FINISHED;
                 })
                 .build();
