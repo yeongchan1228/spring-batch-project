@@ -9,16 +9,15 @@ import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.xml.StaxEventItemReader;
 import org.springframework.batch.item.xml.builder.StaxEventItemReaderBuilder;
-import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import springbatch.springbatchproject.adapter.ApartmentApiResource;
+import springbatch.springbatchproject.core.service.ApartDealService;
 import springbatch.springbatchproject.job.apt.dto.AptDealDto;
 import springbatch.springbatchproject.job.validator.YearMonthParameterValidator;
 
@@ -37,8 +36,8 @@ public class AptDealInsertJobConfig {
     @Bean
     public Job aptDealInsertJob(
             Step lawdCdReadStep,
-            Step contextPrintStep
-//            Step aptDealInsertStep
+            Step aptDealInsertStep
+//            Step contextPrintStep
     ) {
         return jobBuilderFactory.get("aptDealInsertJob")
                 .incrementer(new RunIdIncrementer())
@@ -47,57 +46,11 @@ public class AptDealInsertJobConfig {
                 .validator(new YearMonthParameterValidator())
 
                 .start(lawdCdReadStep)
-                .on("CONTINUABLE").to(contextPrintStep).next(lawdCdReadStep) // 반복 조건
+                .on("CONTINUABLE").to(aptDealInsertStep).next(lawdCdReadStep) // 반복 조건
                 .from(lawdCdReadStep).on("*").end() // 종료 조건
                 .end()
 
                 .build();
-    }
-
-//    private JobParametersValidator aptDealJobParameterValidator() {
-//        CompositeJobParametersValidator validator = new CompositeJobParametersValidator();
-//        validator.setValidators(List.of(
-//                new YearMonthParameterValidator(),
-//                new LawdCdParameterValidator()
-//        ));
-//        return validator;
-//    }
-
-    @Bean
-    @JobScope
-    public Step aptDealInsertStep(StaxEventItemReader<AptDealDto> aptDealResourceReader) {
-        return stepBuilderFactory.get("aptDealInsertStep")
-                .<AptDealDto, AptDealDto>chunk(10)
-                .reader(aptDealResourceReader)
-                .writer(aptDealDtoItemWriter())
-                .build();
-    }
-
-    @Bean
-    @JobScope
-    public Step lawdCdReadStep() {
-        return stepBuilderFactory.get("lawdCdReadStep")
-                .tasklet(lawdTasklet)
-                .build();
-    }
-
-    @Bean
-    @JobScope
-    public Step contextPrintStep(
-            @Value("#{jobExecutionContext['lawdCd']}") String valueLawdCd
-    ) {
-        return stepBuilderFactory.get("contextPrintStep")
-                .tasklet((contribution, chunkContext) -> {
-                    ExecutionContext jobExecutionContext
-                            = chunkContext.getStepContext().getStepExecution().getJobExecution().getExecutionContext();
-
-                    String lawdCd = jobExecutionContext.getString("lawdCd");
-                    System.out.println("lawdCd = " + lawdCd);
-//                    System.out.println("valueLawdCd = " + valueLawdCd);
-                    return RepeatStatus.FINISHED;
-                })
-                .build();
-
     }
 
     @Bean
@@ -119,6 +72,19 @@ public class AptDealInsertJobConfig {
     }
 
     @Bean
+    @JobScope
+    public Step aptDealInsertStep(
+            StaxEventItemReader<AptDealDto> aptDealResourceReader,
+            ItemWriter<AptDealDto> aptDealDtoItemWriter
+            ) {
+        return stepBuilderFactory.get("aptDealInsertStep")
+                .<AptDealDto, AptDealDto>chunk(10)
+                .reader(aptDealResourceReader)
+                .writer(aptDealDtoItemWriter)
+                .build();
+    }
+
+    @Bean
     @StepScope
     public Jaxb2Marshaller aptDealDtoMarshaller() {
         Jaxb2Marshaller jaxb2Marshaller = new Jaxb2Marshaller();
@@ -126,7 +92,45 @@ public class AptDealInsertJobConfig {
         return jaxb2Marshaller;
     }
 
-    private ItemWriter<AptDealDto> aptDealDtoItemWriter() {
-        return items -> items.forEach(System.out::println);
+    @Bean
+    @StepScope
+    public ItemWriter<AptDealDto> aptDealDtoItemWriter(ApartDealService apartDealService) {
+        return items -> items.forEach(apartDealService::upsert);
     }
+
+    @Bean
+    @JobScope
+    public Step lawdCdReadStep() {
+        return stepBuilderFactory.get("lawdCdReadStep")
+                .tasklet(lawdTasklet)
+                .build();
+    }
+
+//    @Bean
+//    @JobScope
+//    public Step contextPrintStep(
+////            @Value("#{jobExecutionContext['lawdCd']}") String valueLawdCd
+//    ) {
+//        return stepBuilderFactory.get("contextPrintStep")
+//                .tasklet((contribution, chunkContext) -> {
+//                    ExecutionContext jobExecutionContext
+//                            = chunkContext.getStepContext().getStepExecution().getJobExecution().getExecutionContext();
+//
+//                    String lawdCd = jobExecutionContext.getString("lawdCd");
+//                    System.out.println("lawdCd = " + lawdCd);
+////                    System.out.println("valueLawdCd = " + valueLawdCd); // @JobScope에 의해 Job Bean이 등록될 때 한번 가져오기 때문에 동일한 값으로 계속 출력된다.
+//                    return RepeatStatus.FINISHED;
+//                })
+//                .build();
+//
+
+//    }
+    //    private JobParametersValidator aptDealJobParameterValidator() {
+//        CompositeJobParametersValidator validator = new CompositeJobParametersValidator();
+//        validator.setValidators(List.of(
+//                new YearMonthParameterValidator(),
+//                new LawdCdParameterValidator()
+//        ));
+//        return validator;
+//    }
 }

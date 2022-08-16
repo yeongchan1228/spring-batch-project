@@ -2,9 +2,14 @@ package springbatch.springbatchproject.job.apt.dto;
 
 import lombok.Getter;
 import lombok.ToString;
+import org.springframework.util.StringUtils;
 
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+import java.util.Optional;
 
 /**
  * 아파트 실거래가 API의 각각의 거래 정보를 담는 객체
@@ -53,4 +58,28 @@ public class AptDealDto {
 
     @XmlElement(name = "해제여부")
     private String dealCanceled;
+
+    public LocalDate getDealDate() {
+        return LocalDate.of(year, month, day);
+    }
+
+    public Long getDealAmount() {
+        return Long.parseLong(dealAmount.replaceAll(",", "").trim());
+    }
+
+    public boolean isDealCanceled() {
+        return "O".equals(dealCanceled.trim());
+    }
+
+    public LocalDate getDealCanceledDate() {
+        if (!StringUtils.hasText(dealCanceledDate)) {
+            return null;
+        }
+
+        return LocalDate.parse(dealCanceledDate.trim(), DateTimeFormatter.ofPattern("yy.MM.dd"));
+    }
+
+    public String getJibun() {
+        return Optional.ofNullable(jibun).orElse("");
+    }
 }
