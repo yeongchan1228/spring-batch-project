@@ -7,7 +7,12 @@ import springbatch.springbatchproject.core.entity.Apart;
 import springbatch.springbatchproject.core.entity.ApartDeal;
 import springbatch.springbatchproject.core.repository.ApartDealRepository;
 import springbatch.springbatchproject.core.repository.ApartRepository;
+import springbatch.springbatchproject.core.service.dto.ApartDto;
 import springbatch.springbatchproject.job.apt.dto.AptDealDto;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * ApartDealDto에 있는 값을 Apart, ApartDeal 엔티티로 저장한다.
@@ -40,5 +45,13 @@ public class ApartDealService {
                 .orElseGet(() -> Apart.from(dto));
         apartRepository.save(apart);
         return apart;
+    }
+
+    public List<ApartDto> findByLawdCdAndDealDate(String lawdCd, LocalDate dealDate) {
+        return apartDealRepository.findByDealCanceledIsFalseAndDealDateEquals(dealDate)
+                .stream()
+                .filter(apartDeal -> apartDeal.getApart().getLawdCd().equals(lawdCd))
+                .map(apartDeal -> new ApartDto(apartDeal.getApart().getApartName(), apartDeal.getDealAmount()))
+                .collect(Collectors.toList());
     }
 }
