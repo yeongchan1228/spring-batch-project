@@ -9,6 +9,7 @@ import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
+import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.xml.StaxEventItemReader;
 import org.springframework.batch.item.xml.builder.StaxEventItemReaderBuilder;
@@ -28,7 +29,6 @@ import java.time.YearMonth;
 @RequiredArgsConstructor
 public class AptDealInsertJobConfig {
 
-    private final LawdTasklet lawdTasklet;
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
     private final ApartmentApiResource apartmentApiResource;
@@ -73,6 +73,14 @@ public class AptDealInsertJobConfig {
 
     @Bean
     @JobScope
+    public Step lawdCdReadStep(Tasklet lawdTasklet) {
+        return stepBuilderFactory.get("lawdCdReadStep")
+                .tasklet(lawdTasklet)
+                .build();
+    }
+
+    @Bean
+    @JobScope
     public Step aptDealInsertStep(
             StaxEventItemReader<AptDealDto> aptDealResourceReader,
             ItemWriter<AptDealDto> aptDealDtoItemWriter
@@ -96,14 +104,6 @@ public class AptDealInsertJobConfig {
     @StepScope
     public ItemWriter<AptDealDto> aptDealDtoItemWriter(ApartDealService apartDealService) {
         return items -> items.forEach(apartDealService::upsert);
-    }
-
-    @Bean
-    @JobScope
-    public Step lawdCdReadStep() {
-        return stepBuilderFactory.get("lawdCdReadStep")
-                .tasklet(lawdTasklet)
-                .build();
     }
 
 //    @Bean
